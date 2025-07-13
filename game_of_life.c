@@ -13,7 +13,7 @@
 #include <SDL.h>
 #define INITIAL_WIDTH 1600
 #define INITIAL_HEIGHT 1000
-#define CELL_SIZE 50	
+#define CELL_SIZE 5	
 #define LINE_WIDTH 0	// grid's lines width  
 #define TIME_TO_WAIT 10	// time to wait (ms) after every grid's state computation - increase to make the game slower
 const SDL_Color alive_cell_color = {0xFF, 0xFF, 0xFF, 0xFF}; // default white
@@ -120,10 +120,23 @@ int count_living_neighbors(CELL *grid, int x, int y, int n_rows, int n_cols) {
 	return alive;
 }
 
+/* Color update of the specific cell's color */
+void update_cell(SDL_Window* window, SDL_Surface* surface, CELL* grid, int x, int y, int n_rows, int n_cols, int update_surface)
+{
+	CELL cell = get_cell(grid, x, y, n_rows, n_cols); 
+	if (cell.state == ALIVE)
+		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b));
+	if (cell.state == DEAD)
+		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b));
+	if (update_surface) SDL_UpdateWindowSurface(window);
+}
+
 /* Compute grid's new state following game's rules
+ * Updates cells only if they changed their state between iterations
+ * Updates window surface only when state has changed 
  * Returns 1 if any cell has changed from the old to the new grid 
  * If no cell has changed its state the game has finished */
-int compute_new_state(CELL *old, CELL *new, int n_rows, int n_cols) {
+int compute_new_state(SDL_Window* window, SDL_Surface* surface, CELL *old, CELL *new, int n_rows, int n_cols) {
 	int state_changed = 0;
 	for (int y = 0; y < n_rows; y++) {
 		for (int x = 0; x < n_cols; x++) {
@@ -138,27 +151,21 @@ int compute_new_state(CELL *old, CELL *new, int n_rows, int n_cols) {
 					new_state = ALIVE;
 			}
 			set_state_of_cell(new,x,y,new_state, n_rows, n_cols);
-			if (old_state != new_state) state_changed = 1;
+			if (old_state != new_state)
+			{
+				state_changed = 1;
+				update_cell(window, surface, new, x, y, n_rows, n_cols, 0);
+			}
 		}
 	}
+	if (state_changed) SDL_UpdateWindowSurface(window);
 	return state_changed;
-}
-
-/* Color update of the specific cell's color */
-void update_cell(SDL_Window* window, SDL_Surface* surface, CELL* grid, int x, int y, int n_rows, int n_cols)
-{
-	CELL cell = get_cell(grid, x, y, n_rows, n_cols); 
-	if (cell.state == ALIVE)
-		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b));
-	if (cell.state == DEAD)
-		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b));
-	SDL_UpdateWindowSurface(window);
 }
 
 /* Bulk update of the grid's color of cells  */
 void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_rows, int n_cols)
 {
-	for (int y = 0; y < n_rows; y ++)
+	for (int y = 0; y < n_rows; y++)
 	{
 		for (int x = 0; x < n_cols; x++)
 		{	
@@ -175,11 +182,9 @@ void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_row
 /* Two grids are used to swap the state into a new grid without changing the state of the old one */
 int game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
 {
-	compute_new_state(old_grid, new_grid, n_rows, n_cols);
-	update_grid(window, surface, new_grid, n_rows, n_cols);
+	compute_new_state(window, surface, old_grid, new_grid, n_rows, n_cols);
 	SDL_Delay(TIME_TO_WAIT);
-	int state_has_changed = compute_new_state(new_grid, old_grid, n_rows, n_cols);
-	update_grid(window, surface, old_grid, n_rows, n_cols);
+	int state_has_changed = compute_new_state(window, surface, new_grid, old_grid, n_rows, n_cols);
 	SDL_Delay(TIME_TO_WAIT);
 	if (!state_has_changed) SDL_Log("game has finished - press SPACE to clear the board");
 	return !state_has_changed;
@@ -216,7 +221,7 @@ int main ()
 	draw_grid(window, surface, n_rows, n_cols);
 	set_grid(old_grid, DEAD, n_rows, n_cols);
 	set_grid(new_grid, DEAD, n_rows, n_cols);
-
+	
 	while (simulation_running)
 	{
 		SDL_Event event;
@@ -238,7 +243,7 @@ int main ()
 							int x = event.button.x / CELL_SIZE;
 							int y = event.button.y / CELL_SIZE;
 							set_state_of_cell(old_grid, x, y, NO_STATE, n_rows, n_cols);
-							update_cell(window, surface, old_grid, x, y, n_rows, n_cols);
+							update_cell(window, surface, old_grid, x, y, n_rows, n_cols, 1);
 							motion_lock = 0;
 						}
 						break;
@@ -251,7 +256,7 @@ int main ()
 						  	int x = event.motion.x / CELL_SIZE;
                                                         int y = event.motion.y / CELL_SIZE;
                                                         set_state_of_cell(old_grid, x, y, ALIVE, n_rows, n_cols);
-							update_cell(window, surface, old_grid, x, y, n_rows, n_cols);	
+							update_cell(window, surface, old_grid, x, y, n_rows, n_cols, 1);	
 						}
 						break;
 					}
