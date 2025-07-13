@@ -13,9 +13,9 @@
 #include <SDL.h>
 #define INITIAL_WIDTH 1600
 #define INITIAL_HEIGHT 1000
-#define CELL_SIZE 30	
-#define LINE_WIDTH 1	// grid's lines width  
-#define TIME_TO_WAIT 1	// time to wait (ms) after every grid's state computation - increase to make the game slower
+#define CELL_SIZE 50	
+#define LINE_WIDTH 0	// grid's lines width  
+#define TIME_TO_WAIT 10	// time to wait (ms) after every grid's state computation - increase to make the game slower
 const SDL_Color alive_cell_color = {0xFF, 0xFF, 0xFF, 0xFF}; // default white
 const SDL_Color dead_cell_color = {0x00, 0x00, 0x00, 0x00}; // default black
 const SDL_Color cell_lines_color = {0xFF, 0xFF, 0xFF, 0xFF};
@@ -120,13 +120,17 @@ int count_living_neighbors(CELL *grid, int x, int y, int n_rows, int n_cols) {
 	return alive;
 }
 
-/* Compute grid's new state following game's rules */
-void compute_new_state(CELL *old, CELL *new, int n_rows, int n_cols) {
+/* Compute grid's new state following game's rules
+ * Returns 1 if any cell has changed from the old to the new grid 
+ * If no cell has changed its state the game has finished */
+int compute_new_state(CELL *old, CELL *new, int n_rows, int n_cols) {
+	int state_changed = 0;
 	for (int y = 0; y < n_rows; y++) {
 		for (int x = 0; x < n_cols; x++) {
 			int n_alive = count_living_neighbors(old, x, y, n_rows, n_cols);
 			STATE new_state = DEAD;
-			if (get_cell(old, x, y, n_rows, n_cols).state == ALIVE) {
+			STATE old_state = get_cell(old, x, y, n_rows, n_cols).state;  
+			if (old_state == ALIVE) {
 				if (n_alive == 2 || n_alive == 3)
 					new_state = ALIVE;
 			} else {
@@ -134,8 +138,10 @@ void compute_new_state(CELL *old, CELL *new, int n_rows, int n_cols) {
 					new_state = ALIVE;
 			}
 			set_state_of_cell(new,x,y,new_state, n_rows, n_cols);
+			if (old_state != new_state) state_changed = 1;
 		}
 	}
+	return state_changed;
 }
 
 /* Color update of the specific cell's color */
@@ -167,16 +173,17 @@ void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_row
 }
 
 /* Two grids are used to swap the state into a new grid without changing the state of the old one */
-void game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
+int game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
 {
 	compute_new_state(old_grid, new_grid, n_rows, n_cols);
 	update_grid(window, surface, new_grid, n_rows, n_cols);
 	SDL_Delay(TIME_TO_WAIT);
-	compute_new_state(new_grid, old_grid, n_rows, n_cols);
+	int state_has_changed = compute_new_state(new_grid, old_grid, n_rows, n_cols);
 	update_grid(window, surface, old_grid, n_rows, n_cols);
 	SDL_Delay(TIME_TO_WAIT);
+	if (!state_has_changed) SDL_Log("game has finished - press SPACE to clear the board");
+	return !state_has_changed;
 }
-
 
 void set_new_grid(CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
 {
@@ -189,21 +196,14 @@ void set_new_grid(CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
 }
 
 int main ()
-{
-	
+{	
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-		return 1;
-	}
 	SDL_Window* window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, INITIAL_WIDTH, INITIAL_HEIGHT, SDL_WINDOW_SHOWN);
 	SDL_Surface* surface = SDL_GetWindowSurface(window);
 
 	int n_rows = INITIAL_HEIGHT / CELL_SIZE;
 	int n_cols = INITIAL_WIDTH / CELL_SIZE;
 	int grid_cells = n_rows * n_cols;	
-
-	int width = INITIAL_WIDTH, height = INITIAL_HEIGHT;
 
 	CELL* old_grid = malloc(sizeof(CELL) * grid_cells);
 	CELL* new_grid = malloc(sizeof(CELL) * grid_cells);
@@ -286,10 +286,9 @@ int main ()
 
 		if (game_started)
 		{
-			game_of_life(window, surface, old_grid, new_grid, n_rows, n_cols);
+			game_started = !game_of_life(window, surface, old_grid, new_grid, n_rows, n_cols);
 		}
 		
-		SDL_GetWindowSize(window, &width, &height);
 	}
 	
 	free(old_grid);
