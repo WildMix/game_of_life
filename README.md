@@ -16,10 +16,15 @@ Then run
 
 The application does not implement renderering hence there could be a lot of performance bugs  
 
-The n_rows and n_cols (grid size) are passed dynamically in order to implement window size updates in the future
+The n_rows and n_cols (grid size) are passed dynamically in order to implement window size updates in the future (probably never)
  
-To start the game select right clicking the cells you want as ALIVE cells and press the key ENTER  
+To start the game select right clicking the cells you want as ALIVE cells and press the key ENTER
 
 You can also use mouse motion while pressing the right button to select multiple cells faster
 
-To end the game press the SPACE key
+To end the game and clear the grid press the SPACE key
+
+To pause the game in the current state press the key P, you can also add more alive cells while the game is paused
+
+To change the animation speed (iterations per second) by SPEED_UNIT, press U to increase and D to decrease
+

@@ -6,16 +6,21 @@
  *
  *	To start the game select right clicking the cells you want as ALIVE cells and press the key ENTER
  *	You can also use mouse motion while pressing the right button to select multiple cells faster
- *	To end the game press the SPACE key
+ *	To end the game and clear the grid press the SPACE key
+ *	To pause the game in the current state press the key P, you can also add more alive cells while the game is pause
+ *	To change the animation speed (iterations per second) by SPEED_UNIT, press U to increase and D to decrease
  * */
 
 
 #include <SDL.h>
+#include <stdlib.h>
 #define INITIAL_WIDTH 1600
 #define INITIAL_HEIGHT 1000
 #define CELL_SIZE 5	
 #define LINE_WIDTH 0	// grid's lines width  
-#define TIME_TO_WAIT 10	// time to wait (ms) after every grid's state computation - increase to make the game slower
+#define MAX_SPEED_VALUE 100
+#define MIN_SPEED_VALUE 1
+#define SPEED_UNIT 5
 const SDL_Color alive_cell_color = {0xFF, 0xFF, 0xFF, 0xFF}; // default white
 const SDL_Color dead_cell_color = {0x00, 0x00, 0x00, 0x00}; // default black
 const SDL_Color cell_lines_color = {0xFF, 0xFF, 0xFF, 0xFF};
@@ -51,7 +56,6 @@ int cell_to_index(int x, int y, int n_rows, int n_cols) {
 
     return y*n_cols+x;
 }
-
 
 void set_cell(CELL *grid, int x, int y, CELL new_cell, int n_rows, int n_cols) {
 	grid[cell_to_index(x, y, n_rows, n_cols)] = new_cell;
@@ -180,12 +184,13 @@ void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_row
 }
 
 /* Two grids are used to swap the state into a new grid without changing the state of the old one */
-int game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
+int game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols, int animation_speed)
 {
+	int wait_time = 1000 / animation_speed;
 	compute_new_state(window, surface, old_grid, new_grid, n_rows, n_cols);
-	SDL_Delay(TIME_TO_WAIT);
+	SDL_Delay(wait_time);
 	int state_has_changed = compute_new_state(window, surface, new_grid, old_grid, n_rows, n_cols);
-	SDL_Delay(TIME_TO_WAIT);
+	SDL_Delay(wait_time);
 	if (!state_has_changed) SDL_Log("game has finished - press SPACE to clear the board");
 	return !state_has_changed;
 }
@@ -213,10 +218,10 @@ int main ()
 	CELL* old_grid = malloc(sizeof(CELL) * grid_cells);
 	CELL* new_grid = malloc(sizeof(CELL) * grid_cells);
 
-
 	int simulation_running = 1;
 	int game_started = 0;
 	int motion_lock = 1;	
+	int animation_speed = 60;  // default to 60 iterations per second
 
 	draw_grid(window, surface, n_rows, n_cols);
 	set_grid(old_grid, DEAD, n_rows, n_cols);
@@ -273,14 +278,35 @@ int main ()
 						if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER)
 						{
 							game_started = 1;
+							SDL_Log("Game started - press 'P' to pause it");
 						}
-						// CLEAR key is used to end it
+						// SPACE key is used to end the game and clear the grid
 						if (event.key.keysym.sym == SDLK_SPACE)
 						{
 							game_started = 0;
 							set_grid(old_grid, DEAD, n_rows, n_cols);
 							set_grid(new_grid, DEAD, n_rows, n_cols);
 							update_grid(window, surface, old_grid, n_rows, n_cols);
+						}
+						// U key to increase the animation_speed
+						if (event.key.keysym.sym == SDLK_u)
+						{
+							if ((animation_speed + SPEED_UNIT) > MAX_SPEED_VALUE) break;
+							animation_speed += SPEED_UNIT;
+							SDL_Log("animation_speed: %d iterations per second", animation_speed);
+						}	
+						// D key to decrease the animation_speed
+						if (event.key.keysym.sym == SDLK_d)
+						{
+							if ((animation_speed - SPEED_UNIT) < MIN_SPEED_VALUE) break;
+							animation_speed -= SPEED_UNIT;
+							SDL_Log("animation_speed: %d iterations per second", animation_speed);
+						}
+						// P key to pause the game
+						if (event.key.keysym.sym == SDLK_p)
+						{
+							game_started = 0;
+							SDL_Log("Game paused - press ENTER to restart it");
 						}
 						break;
 					}
@@ -291,7 +317,7 @@ int main ()
 
 		if (game_started)
 		{
-			game_started = !game_of_life(window, surface, old_grid, new_grid, n_rows, n_cols);
+			game_started = !game_of_life(window, surface, old_grid, new_grid, n_rows, n_cols, animation_speed);
 		}
 		
 	}
