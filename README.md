@@ -4,8 +4,10 @@ The game implementation is taken from antirez's implementation done in it's Yout
 
 To install SDL you can follow their [guide](https://wiki.libsdl.org/SDL2/Installation)
 
-To compile run make
-Then run ./game_of_life
+To compile run 
+`make`
+Then run 
+`./game_of_life`
 
 
 
