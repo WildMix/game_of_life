@@ -14,7 +14,7 @@
 
 #include <SDL.h>
 #include <stdlib.h>
-#define INITIAL_WIDTH 1600
+#define INITIAL_WIDTH 1000
 #define INITIAL_HEIGHT 1000
 #define CELL_SIZE 5	
 #define LINE_WIDTH 0	// grid's lines width  
