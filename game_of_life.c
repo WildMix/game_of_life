@@ -13,12 +13,11 @@
 
 
 #include <SDL.h>
-#include <stdlib.h>
 #define INITIAL_WIDTH 1000
 #define INITIAL_HEIGHT 1000
 #define CELL_SIZE 5	
 #define LINE_WIDTH 0	// grid's lines width  
-#define MAX_SPEED_VALUE 100
+#define MAX_SPEED_VALUE 200
 #define MIN_SPEED_VALUE 1
 #define SPEED_UNIT 5
 const SDL_Color alive_cell_color = {0xFF, 0xFF, 0xFF, 0xFF}; // default white
@@ -28,7 +27,7 @@ typedef enum
 {
 	ALIVE,
 	DEAD,
-	NO_STATE	// used before starting the game to set the cell as the opposite of the current value
+	NO_STATE	// used before starting the game or when the game is paused to set the cell as the opposite of the current value
 } STATE;
 
 
@@ -78,26 +77,26 @@ CELL get_cell(CELL *grid, int x, int y, int n_rows, int n_cols) {
 }
 
 /* Draw grid on the screen */
-void draw_grid(SDL_Window* window, SDL_Surface* surface, int n_rows, int n_cols)
+void draw_grid(SDL_Renderer* renderer, int n_rows, int n_cols)
 {
 	for (int row = 0; row < n_rows; row++) {
                 for (int col = 0; col < n_cols; col++) {
                         int x = col * CELL_SIZE, y = row * CELL_SIZE;
 
-                        Uint32 line_color = SDL_MapRGB(surface->format, cell_lines_color.r, cell_lines_color.g, cell_lines_color.b);
                         SDL_Rect top_line = {x, y, CELL_SIZE, LINE_WIDTH};
                         SDL_Rect bottom_line = {x, y + CELL_SIZE, CELL_SIZE, LINE_WIDTH};
                         SDL_Rect left_line = {x, y, LINE_WIDTH, CELL_SIZE};
                         SDL_Rect right_line = {x + CELL_SIZE, y, LINE_WIDTH, CELL_SIZE};
-
-                        SDL_FillRect(surface, &top_line, line_color);
-                        SDL_FillRect(surface, &bottom_line, line_color);
-                        SDL_FillRect(surface, &left_line, line_color);
-                        SDL_FillRect(surface, &right_line, line_color);
+			
+			SDL_SetRenderDrawColor(renderer, cell_lines_color.r, cell_lines_color.g, cell_lines_color.b, cell_lines_color.a);
+                        SDL_RenderFillRect(renderer, &top_line);
+                        SDL_RenderFillRect(renderer, &bottom_line);
+                        SDL_RenderFillRect(renderer, &left_line);
+                        SDL_RenderFillRect(renderer, &right_line);
 
                 }
         }
-	SDL_UpdateWindowSurface(window);
+	SDL_RenderPresent(renderer);
 }
 
 /* Grid's "constructor" */
@@ -125,14 +124,16 @@ int count_living_neighbors(CELL *grid, int x, int y, int n_rows, int n_cols) {
 }
 
 /* Color update of the specific cell's color */
-void update_cell(SDL_Window* window, SDL_Surface* surface, CELL* grid, int x, int y, int n_rows, int n_cols, int update_surface)
+void update_cell(SDL_Renderer* renderer, CELL* grid, int x, int y, int n_rows, int n_cols, int update_surface)
 {
 	CELL cell = get_cell(grid, x, y, n_rows, n_cols); 
+
 	if (cell.state == ALIVE)
-		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b));
+		SDL_SetRenderDrawColor(renderer, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b, alive_cell_color.a); 
 	if (cell.state == DEAD)
-		SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b));
-	if (update_surface) SDL_UpdateWindowSurface(window);
+		SDL_SetRenderDrawColor(renderer, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b, dead_cell_color.a);
+       	SDL_RenderFillRect(renderer, &cell.rect);	
+	if (update_surface) SDL_RenderPresent(renderer);
 }
 
 /* Compute grid's new state following game's rules
@@ -140,7 +141,7 @@ void update_cell(SDL_Window* window, SDL_Surface* surface, CELL* grid, int x, in
  * Updates window surface only when state has changed 
  * Returns 1 if any cell has changed from the old to the new grid 
  * If no cell has changed its state the game has finished */
-int compute_new_state(SDL_Window* window, SDL_Surface* surface, CELL *old, CELL *new, int n_rows, int n_cols) {
+int compute_new_state(SDL_Renderer* renderer, CELL *old, CELL *new, int n_rows, int n_cols) {
 	int state_changed = 0;
 	for (int y = 0; y < n_rows; y++) {
 		for (int x = 0; x < n_cols; x++) {
@@ -158,16 +159,18 @@ int compute_new_state(SDL_Window* window, SDL_Surface* surface, CELL *old, CELL 
 			if (old_state != new_state)
 			{
 				state_changed = 1;
-				update_cell(window, surface, new, x, y, n_rows, n_cols, 0);
+				update_cell(renderer, new, x, y, n_rows, n_cols, 0);
 			}
 		}
 	}
-	if (state_changed) SDL_UpdateWindowSurface(window);
+	/* Dirty rect rendering is implemented automatically 
+	 checking state changes */
+	if (state_changed) SDL_RenderPresent(renderer);
 	return state_changed;
 }
 
 /* Bulk update of the grid's color of cells  */
-void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_rows, int n_cols)
+void update_grid(SDL_Renderer* renderer, CELL* grid, int n_rows, int n_cols)
 {
 	for (int y = 0; y < n_rows; y++)
 	{
@@ -175,42 +178,32 @@ void update_grid(SDL_Window* window, SDL_Surface* surface, CELL* grid, int n_row
 		{	
 			CELL cell = get_cell(grid, x, y, n_rows, n_cols);
 			if (cell.state == ALIVE)
-				SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b));
+				SDL_SetRenderDrawColor(renderer, alive_cell_color.r, alive_cell_color.g, alive_cell_color.b, alive_cell_color.a); 
 			if (cell.state == DEAD)
-				SDL_FillRect(surface, &cell.rect, SDL_MapRGB(surface->format, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b));
+				SDL_SetRenderDrawColor(renderer, dead_cell_color.r, dead_cell_color.g, dead_cell_color.b, dead_cell_color.a); 
+			SDL_RenderFillRect(renderer, &cell.rect);
 		}
 	}
-	SDL_UpdateWindowSurface(window);
+	SDL_RenderPresent(renderer);
 }
 
 /* Two grids are used to swap the state into a new grid without changing the state of the old one */
-int game_of_life(SDL_Window* window, SDL_Surface* surface, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols, int animation_speed)
+int game_of_life(SDL_Renderer* renderer, CELL* old_grid, CELL* new_grid, int n_rows, int n_cols, int animation_speed)
 {
 	int wait_time = 1000 / animation_speed;
-	compute_new_state(window, surface, old_grid, new_grid, n_rows, n_cols);
+	compute_new_state(renderer, old_grid, new_grid, n_rows, n_cols);
 	SDL_Delay(wait_time);
-	int state_has_changed = compute_new_state(window, surface, new_grid, old_grid, n_rows, n_cols);
+	int state_has_changed = compute_new_state(renderer, new_grid, old_grid, n_rows, n_cols);
 	SDL_Delay(wait_time);
 	if (!state_has_changed) SDL_Log("game has finished - press SPACE to clear the board");
 	return !state_has_changed;
 }
 
-void set_new_grid(CELL* old_grid, CELL* new_grid, int n_rows, int n_cols)
-{
-        for (int row = 0; row < n_rows; row++) {
-                for (int col = 0; col < n_cols; col++) {
-			int index = cell_to_index(col, row, n_rows, n_cols);
-			new_grid[index] = old_grid[index];
-                }
-        }	
-}
-
 int main ()
 {	
-
+	SDL_Log("--- Game Controls ---\n\t- Start: Right-click cells to set as ALIVE, then press ENTER.\n\t- Fast Select: Hold right-click and drag to select multiple cells.\n\t- End/Clear: Press SPACE.\n\t- Pause/Resume: Press P. You can add cells while paused.\n\t- Speed: Press U to increase speed, D to decrease speed.");
 	SDL_Window* window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, INITIAL_WIDTH, INITIAL_HEIGHT, SDL_WINDOW_SHOWN);
-	SDL_Surface* surface = SDL_GetWindowSurface(window);
-
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);  
 	int n_rows = INITIAL_HEIGHT / CELL_SIZE;
 	int n_cols = INITIAL_WIDTH / CELL_SIZE;
 	int grid_cells = n_rows * n_cols;	
@@ -223,9 +216,10 @@ int main ()
 	int motion_lock = 1;	
 	int animation_speed = 60;  // default to 60 iterations per second
 
-	draw_grid(window, surface, n_rows, n_cols);
+	draw_grid(renderer, n_rows, n_cols);
 	set_grid(old_grid, DEAD, n_rows, n_cols);
 	set_grid(new_grid, DEAD, n_rows, n_cols);
+	update_grid(renderer, old_grid, n_rows, n_cols);
 	
 	while (simulation_running)
 	{
@@ -248,7 +242,7 @@ int main ()
 							int x = event.button.x / CELL_SIZE;
 							int y = event.button.y / CELL_SIZE;
 							set_state_of_cell(old_grid, x, y, NO_STATE, n_rows, n_cols);
-							update_cell(window, surface, old_grid, x, y, n_rows, n_cols, 1);
+							update_cell(renderer, old_grid, x, y, n_rows, n_cols, 1);
 							motion_lock = 0;
 						}
 						break;
@@ -261,7 +255,7 @@ int main ()
 						  	int x = event.motion.x / CELL_SIZE;
                                                         int y = event.motion.y / CELL_SIZE;
                                                         set_state_of_cell(old_grid, x, y, ALIVE, n_rows, n_cols);
-							update_cell(window, surface, old_grid, x, y, n_rows, n_cols, 1);	
+							update_cell(renderer, old_grid, x, y, n_rows, n_cols, 1);	
 						}
 						break;
 					}
@@ -286,7 +280,7 @@ int main ()
 							game_started = 0;
 							set_grid(old_grid, DEAD, n_rows, n_cols);
 							set_grid(new_grid, DEAD, n_rows, n_cols);
-							update_grid(window, surface, old_grid, n_rows, n_cols);
+							update_grid(renderer, old_grid, n_rows, n_cols);
 						}
 						// U key to increase the animation_speed
 						if (event.key.keysym.sym == SDLK_u)
@@ -317,13 +311,14 @@ int main ()
 
 		if (game_started)
 		{
-			game_started = !game_of_life(window, surface, old_grid, new_grid, n_rows, n_cols, animation_speed);
+			game_started = !game_of_life(renderer, old_grid, new_grid, n_rows, n_cols, animation_speed);
 		}
 		
 	}
 	
 	free(old_grid);
 	free(new_grid);
+	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 
