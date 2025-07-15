@@ -13,12 +13,11 @@
 
 
 #include <SDL.h>
-#include <stdlib.h>
 #define INITIAL_WIDTH 1000
 #define INITIAL_HEIGHT 1000
-#define CELL_SIZE 20	
+#define CELL_SIZE 5	
 #define LINE_WIDTH 0	// grid's lines width  
-#define MAX_SPEED_VALUE 100
+#define MAX_SPEED_VALUE 200
 #define MIN_SPEED_VALUE 1
 #define SPEED_UNIT 5
 const SDL_Color alive_cell_color = {0xFF, 0xFF, 0xFF, 0xFF}; // default white
@@ -28,7 +27,7 @@ typedef enum
 {
 	ALIVE,
 	DEAD,
-	NO_STATE	// used before starting the game to set the cell as the opposite of the current value
+	NO_STATE	// used before starting the game or when the game is paused to set the cell as the opposite of the current value
 } STATE;
 
 
@@ -164,6 +163,8 @@ int compute_new_state(SDL_Renderer* renderer, CELL *old, CELL *new, int n_rows, 
 			}
 		}
 	}
+	/* Dirty rect rendering is implemented automatically 
+	 checking state changes */
 	if (state_changed) SDL_RenderPresent(renderer);
 	return state_changed;
 }
@@ -200,7 +201,7 @@ int game_of_life(SDL_Renderer* renderer, CELL* old_grid, CELL* new_grid, int n_r
 
 int main ()
 {	
-
+	SDL_Log("--- Game Controls ---\n\t- Start: Right-click cells to set as ALIVE, then press ENTER.\n\t- Fast Select: Hold right-click and drag to select multiple cells.\n\t- End/Clear: Press SPACE.\n\t- Pause/Resume: Press P. You can add cells while paused.\n\t- Speed: Press U to increase speed, D to decrease speed.");
 	SDL_Window* window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, INITIAL_WIDTH, INITIAL_HEIGHT, SDL_WINDOW_SHOWN);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);  
 	int n_rows = INITIAL_HEIGHT / CELL_SIZE;
